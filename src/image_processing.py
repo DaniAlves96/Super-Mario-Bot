@@ -42,19 +42,16 @@ def grab_screen(region=None):
 def screen_record(region =None): 
     last_time = time.time()
     if region:
-            left,top,x2,y2 = region
-            width = x2 - left + 1
-            height = y2 - top + 1
+            xleft,ytop, x2, y2 = region
+            
     else:
         width = win32api.GetSystemMetrics(win32con.SM_CXVIRTUALSCREEN)
         height = win32api.GetSystemMetrics(win32con.SM_CYVIRTUALSCREEN)
         left = win32api.GetSystemMetrics(win32con.SM_XVIRTUALSCREEN)
         top = win32api.GetSystemMetrics(win32con.SM_YVIRTUALSCREEN)
-        print(width, height, left,top)    
+
     while(True):
-        # 800x600 windowed mode for GTA 5, at the top left position of your main screen.
-        # 40 px accounts for title bar. 
-        printscreen =  np.array(ImageGrab.grab(bbox=(left,top, width, height)))
+        printscreen =  np.array(ImageGrab.grab(bbox=(xleft,ytop, x2, y2)))
         print('FPS: {}'.format(1/(time.time()-last_time)))
         last_time = time.time()
         cv2.imshow('window',cv2.cvtColor(printscreen, cv2.COLOR_BGR2RGB))
@@ -62,6 +59,7 @@ def screen_record(region =None):
             cv2.destroyAllWindows()
             break
 
-region = [150,120, 1300, 800]
+region = [16,96, 660+16,522+200]
 if __name__ == "__main__":
+    time.sleep(2)
     screen_record(region)

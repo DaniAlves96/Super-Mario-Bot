@@ -11,8 +11,7 @@ def grab_screen(region=None):
 
     if region:
             left,top,x2,y2 = region
-            width = x2 - left + 1
-            height = y2 - top + 1
+
     else:
         width = win32api.GetSystemMetrics(win32con.SM_CXVIRTUALSCREEN)
         height = win32api.GetSystemMetrics(win32con.SM_CYVIRTUALSCREEN)
@@ -42,7 +41,7 @@ def grab_screen(region=None):
 def screen_record(region =None): 
     last_time = time.time()
     if region:
-            xleft,ytop, x2, y2 = region
+            xleft,ytop,x2, y2, = region
             
     else:
         width = win32api.GetSystemMetrics(win32con.SM_CXVIRTUALSCREEN)
@@ -51,7 +50,7 @@ def screen_record(region =None):
         top = win32api.GetSystemMetrics(win32con.SM_YVIRTUALSCREEN)
 
     while(True):
-        printscreen =  np.array(ImageGrab.grab(bbox=(xleft,ytop, x2, y2)))
+        printscreen =  np.array(ImageGrab.grab(bbox=(xleft*1.25,ytop*1.25, x2*1.25, y2*1.25)))
         print('FPS: {}'.format(1/(time.time()-last_time)))
         last_time = time.time()
         cv2.imshow('window',cv2.cvtColor(printscreen, cv2.COLOR_BGR2RGB))
@@ -59,7 +58,9 @@ def screen_record(region =None):
             cv2.destroyAllWindows()
             break
 
-region = [16,96, 660+16,522+200]
+
+
 if __name__ == "__main__":
+    region = [0,96, 660,100]
     time.sleep(2)
     screen_record(region)

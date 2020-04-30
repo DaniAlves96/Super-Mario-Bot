@@ -154,8 +154,8 @@ def screen_record(region =None):
 import sys
 import traceback
 
-pipe_template = cv2.imread('C:\\Users\\alves\\OneDrive\\Documentos\\Dev\\Super-Mario-Bot\\Super-Mario-Bot\\templates\\mario_pipe_color.png',0)
-gumpa_template = cv2.imread('C:\\Users\\alves\\OneDrive\\Documentos\\Dev\\Super-Mario-Bot\\Super-Mario-Bot\\templates\\gumpa.png',0)
+pipe_template = cv2.imread('..\\templates\\mario_pipe_color.png',0)
+gumpa_template = cv2.imread('..\\templates\\gumpa.png',0)
 
 if __name__ == "__main__":
     print("Starting")

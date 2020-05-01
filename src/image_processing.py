@@ -22,15 +22,23 @@ def label_object(frame, message, position):
 def find_gumpas(frame, processed_frame, draw = True):
     w, h = gumpa_template.shape[::-1]
     
+    #processed_img =  cv2.Canny(processed_frame, threshold1 = 200, threshold2=300)
+    #gumpa_temp = cv2.Canny(gumpa_template, threshold1 = 200, threshold2=300)
     res = cv2.matchTemplate(processed_frame, gumpa_template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.4
+    threshold = 0.55
     loc = np.where( res >= threshold)
+    print(res.max())
     for pt in zip(*loc[::-1]):
+        pt = (pt[0]-int(w/4), pt[1]-int(h))
         if draw:
-            cv2.rectangle(frame, pt, (pt[0] + w, frame.shape[0]), (0,0,255), 2)
+            print(pt)
+            cv2.rectangle(frame, pt,
+                          (pt[0] + int(1.5*w),
+                           pt[1]+ int(2.5*h)), 
+                           (0,0,255),
+                           2)
             label_object(frame, "GUMPA", pt)
-        processed_frame[pt[1]:, pt[0]:pt[0]+w] = 0
-
+        processed_frame[pt[1]:pt[1]+ int(2.5*h), pt[0]:pt[0]+ 2*w] = 0
     return processed_frame, frame
 
 def find_pipes(frame, processed_frame, draw = True):
@@ -69,8 +77,8 @@ def screen_record(region =None):
         height = win32api.GetSystemMetrics(win32con.SM_CYVIRTUALSCREEN)
         left = win32api.GetSystemMetrics(win32con.SM_XVIRTUALSCREEN)
         top = win32api.GetSystemMetrics(win32con.SM_YVIRTUALSCREEN)
-    i=0
-    while(i != 5):
+    lol=0
+    while(lol != -1):
         try:
             frame =  np.array(ImageGrab.grab(bbox=(xleft*1.25,ytop*1.25, x2*1.25, y2*1.25)))
             frame_height = frame.shape[0]
@@ -141,7 +149,7 @@ def screen_record(region =None):
                 frame = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
             cv2.imshow('window', processed_frame)
            '''
-            
+            lol +=1
             previous_frame = frame
             if cv2.waitKey(25) & 0xFF == ord('q'):
                 cv2.destroyAllWindows()
@@ -150,12 +158,15 @@ def screen_record(region =None):
             print(e)
             traceback.print_exc()
             return hierarchy, contours, frame
-
+    return processed_frame
 import sys
 import traceback
 
 pipe_template = cv2.imread('..\\templates\\mario_pipe_color.png',0)
-gumpa_template = cv2.imread('..\\templates\\gumpa.png',0)
+            
+
+gumpa_template = cv2.imread('..\\templates\\gumpa_face.png',0)
+gumpa_template = cv2.resize(gumpa_template, (int(gumpa_template.shape[0]*0.8), int(gumpa_template.shape[1]*0.8)), interpolation = cv2.INTER_AREA)
 
 if __name__ == "__main__":
     print("Starting")
@@ -164,4 +175,17 @@ if __name__ == "__main__":
             xleft,ytop,x2, y2, = region
     time.sleep(2)
     err = screen_record(region)
+ 
+    template_x = gumpa_template.shape[0]
+    template_y = gumpa_template.shape[1]
+    similarity_max = np.inf
     
+    for i in range(err.shape[0] - template_x):
+        for j in range(err.shape[1] - template_y):
+            similarity = np.abs(err[i:i+template_x, j:j+template_y] - gumpa_template).mean()
+            if similarity < similarity_max:
+                similarity_max = similarity
+                
+    def show(img):
+        cv2.imshow('window2', img)
+        cv2.waitKey()

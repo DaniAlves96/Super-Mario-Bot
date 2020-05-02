@@ -5,57 +5,74 @@ import numpy as np
 import win32gui, win32ui, win32con, win32api
 import time
 
+
 def draw_lines(img, lines):
     try:
         for line in lines:
             coords = line[0]
-            cv2.line(img, (coords[0],coords[1]), (coords[2],coords[3]), [255,255,255], 3)
+            cv2.line(img, (coords[0], coords[1]), (coords[2], coords[3]), [255, 255, 255], 3)
     except:
         pass
 
 
 def label_object(frame, message, position):
     position = (position[0], position[1] - 10)
-    return cv2.putText(frame, message,  position, cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2 )
+    return cv2.putText(frame, message,  position, cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
 
 def find_mario(frame, processed_frame, draw=True):
+    w_up, h_up = 7, 2 #TODO: ver resolucao do ecra atual
     w, h = mario_template.shape[::-1]
-    inverse = False
+    big_w, big_h = big_mario_template.shape[::-1]
+    mario_positions = {'mario': 0, 'mario_inv': 0, 'big_mario': 0, 'big_mario_inv': 0}
 
     res = cv2.matchTemplate(processed_frame, mario_template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.6925
+    res_inv = cv2.matchTemplate(processed_frame, mario_inv_template, cv2.TM_CCOEFF_NORMED)
+    big_res = cv2.matchTemplate(processed_frame, big_mario_template, cv2.TM_CCOEFF_NORMED)
+    big_res_inv = cv2.matchTemplate(processed_frame, big_mario_inv_template, cv2.TM_CCOEFF_NORMED)
+
+    _, max_val, _, max_loc = cv2.minMaxLoc(res)
+    mario_positions['mario'] = (max_val, max_loc)
+    _, max_val, _, max_loc = cv2.minMaxLoc(res_inv)
+    mario_positions['mario_inv'] = (max_val, max_loc)
+    _, max_val, _, max_loc = cv2.minMaxLoc(big_res)
+    mario_positions['big_mario'] = (max_val, max_loc)
+    _, max_val, _, max_loc = cv2.minMaxLoc(big_res_inv)
+    mario_positions['big_mario_inv'] = (max_val, max_loc)
+
+    active_mario = max(mario_positions, key=mario_positions.get)
+    max_loc = mario_positions.get(active_mario)[1]
+
+    if active_mario.startswith('big'):
+        w, h, h_up = big_w, big_h*1.5, 7
+
+    bottom_right = (max_loc[0] + int(1.45 * w), max_loc[1] + int(2.7 * h))
+    cv2.rectangle(frame, (max_loc[0]-w_up, max_loc[1]-h_up), bottom_right, (0, 255, 0), 2)
+    label_object(frame, active_mario, max_loc)
+    processed_frame[max_loc[1]-h_up:max_loc[1]-h_up + int(2.75 * h), max_loc[0]-w_up:max_loc[0]-w_up + int(1.45 * w)] = 0
+    return processed_frame, frame
+
+
+def find_mario_lost(frame, processed_frame, draw=True):
+    w, h = mario_lost_template.shape[::-1]
+
+    res = cv2.matchTemplate(processed_frame, mario_lost_template, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.7
     loc = np.where(res >= threshold)
-    if not [_ for _ in zip(*loc[::-1])]: #se nao existir mario para a direita assume que esta para a esquerda
-        inverse = True
-        res = cv2.matchTemplate(processed_frame, mario_inv_template, cv2.TM_CCOEFF_NORMED)
-        threshold = 0.6925
-        loc = np.where(res >= threshold)
-
-        #TODO:
-        # O numero tao especifico de threshold para um numero mais redondo eh a diferenca entre apanhar 70% do salto e 40% do salto
-        # .
-        # Se calhar temos de por tambem a cara do mario virada para o ecra como morre para sabermos que o jogo parou,
-        # ou entao pelo score em cima do lado esquerdo
-        # .
-        # Ainda ha outra cara que o mario pode fazer que eh quando vai a correr e viras para o outro lado
-
     for pt in zip(*loc[::-1]):
         pt = (pt[0] - int(w / 5), pt[1] - int(h / 3.5))
         if draw:
             cv2.rectangle(frame, pt,
                           (pt[0] + int(1.35 * w),
-                           pt[1] + int(3 * h)),
+                           pt[1] + int(1.25 * h)),
                           (0, 255, 0),
                           2)
-            if inverse:
-                label_object(frame, "Mario <", pt)
-            else:
-                label_object(frame, "Mario >", pt)
-        processed_frame[pt[1]:pt[1] + int(h), pt[0]:pt[0] + 2 * w] = 0
+            label_object(frame, "Mario Lost", pt)
+        processed_frame[pt[1]:pt[1] + int(1.25 * h), pt[0]:pt[0] + int(1.35 * w)] = 0
     return processed_frame, frame
 
-def find_gumpas(frame, processed_frame, draw = True):
+
+def find_gumpas(frame, processed_frame, draw=True):
     w, h = gumpa_template.shape[::-1]
     
     #processed_img =  cv2.Canny(processed_frame, threshold1 = 200, threshold2=300)
@@ -70,7 +87,7 @@ def find_gumpas(frame, processed_frame, draw = True):
             #print(pt)
             cv2.rectangle(frame, pt,
                           (pt[0] + int(1.5*w),
-                           pt[1]+ int(2.5*h)), 
+                           pt[1]+ int(2.5*h)),
                            (0,0,255),
                            2)
             label_object(frame, "GUMPA", pt)
@@ -129,9 +146,17 @@ def screen_record(region =None):
             contours_idx = np.where(hierarchy[0][:,3]!=np.inf)[0]
 
             processed_frame, frame = find_mario(frame, processed_frame)
+            processed_frame, frame = find_mario_lost(frame, processed_frame)
+
             processed_frame, frame = find_pipes(frame, processed_frame)
             processed_frame, frame = find_gumpas(frame, processed_frame)
+            """
+            floor2 = floor[int(floor.shape[0]/5),:]
+            cv2.imshow('window', floor[10:,:])
+            floor2[np.where(floor2 > 150)[0]] = 1
+            """
             cv2.imshow('window', frame[:,:,::-1])
+            #cv2.imshow('window', processed_frame)
             #[:,:,::-1]
             '''
             connectivity = 4
@@ -207,6 +232,10 @@ gumpa_template = cv2.resize(gumpa_template, (int(gumpa_template.shape[0]*0.8), i
 
 mario_template = cv2.imread('..\\templates\\mario.png',0)
 mario_inv_template = cv2.imread('..\\templates\\mario_inv.png',0)
+big_mario_template = cv2.imread('..\\templates\\big_mario.png',0)
+big_mario_inv_template = cv2.imread('..\\templates\\big_mario_inv.png',0)
+mario_lost_template = cv2.imread('..\\templates\\mario_death.png',0)
+
 
 if __name__ == "__main__":
     print("Starting")

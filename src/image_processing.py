@@ -19,6 +19,42 @@ def label_object(frame, message, position):
     return cv2.putText(frame, message,  position, cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2 )
 
 
+def find_mario(frame, processed_frame, draw=True):
+    w, h = mario_template.shape[::-1]
+    inverse = False
+
+    res = cv2.matchTemplate(processed_frame, mario_template, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.6925
+    loc = np.where(res >= threshold)
+    if not [_ for _ in zip(*loc[::-1])]: #se nao existir mario para a direita assume que esta para a esquerda
+        inverse = True
+        res = cv2.matchTemplate(processed_frame, mario_inv_template, cv2.TM_CCOEFF_NORMED)
+        threshold = 0.6925
+        loc = np.where(res >= threshold)
+
+        #TODO:
+        # O numero tao especifico de threshold para um numero mais redondo eh a diferenca entre apanhar 70% do salto e 40% do salto
+        # .
+        # Se calhar temos de por tambem a cara do mario virada para o ecra como morre para sabermos que o jogo parou,
+        # ou entao pelo score em cima do lado esquerdo
+        # .
+        # Ainda ha outra cara que o mario pode fazer que eh quando vai a correr e viras para o outro lado
+
+    for pt in zip(*loc[::-1]):
+        pt = (pt[0] - int(w / 5), pt[1] - int(h / 3.5))
+        if draw:
+            cv2.rectangle(frame, pt,
+                          (pt[0] + int(1.35 * w),
+                           pt[1] + int(3 * h)),
+                          (0, 255, 0),
+                          2)
+            if inverse:
+                label_object(frame, "Mario <", pt)
+            else:
+                label_object(frame, "Mario >", pt)
+        processed_frame[pt[1]:pt[1] + int(h), pt[0]:pt[0] + 2 * w] = 0
+    return processed_frame, frame
+
 def find_gumpas(frame, processed_frame, draw = True):
     w, h = gumpa_template.shape[::-1]
     
@@ -27,11 +63,11 @@ def find_gumpas(frame, processed_frame, draw = True):
     res = cv2.matchTemplate(processed_frame, gumpa_template, cv2.TM_CCOEFF_NORMED)
     threshold = 0.55
     loc = np.where( res >= threshold)
-    print(res.max())
+    #print(res.max())
     for pt in zip(*loc[::-1]):
         pt = (pt[0]-int(w/4), pt[1]-int(h))
         if draw:
-            print(pt)
+            #print(pt)
             cv2.rectangle(frame, pt,
                           (pt[0] + int(1.5*w),
                            pt[1]+ int(2.5*h)), 
@@ -91,7 +127,8 @@ def screen_record(region =None):
             #draw_lines(processed_frame,lines)
             contours, hierarchy = cv2.findContours(processed_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             contours_idx = np.where(hierarchy[0][:,3]!=np.inf)[0]
-             
+
+            processed_frame, frame = find_mario(frame, processed_frame)
             processed_frame, frame = find_pipes(frame, processed_frame)
             processed_frame, frame = find_gumpas(frame, processed_frame)
             cv2.imshow('window', frame[:,:,::-1])
@@ -167,6 +204,9 @@ pipe_template = cv2.imread('..\\templates\\mario_pipe_color.png',0)
 
 gumpa_template = cv2.imread('..\\templates\\gumpa_face.png',0)
 gumpa_template = cv2.resize(gumpa_template, (int(gumpa_template.shape[0]*0.8), int(gumpa_template.shape[1]*0.8)), interpolation = cv2.INTER_AREA)
+
+mario_template = cv2.imread('..\\templates\\mario.png',0)
+mario_inv_template = cv2.imread('..\\templates\\mario_inv.png',0)
 
 if __name__ == "__main__":
     print("Starting")
